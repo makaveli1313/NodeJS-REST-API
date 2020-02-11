@@ -7,7 +7,42 @@ const geocoder = require('../utils/geocoder');
 // @route GET /api/v1/bootcamps
 // @access Public
 exports.getBootcamps = asyncHandler(async (req, res, next) => {
-  const bootcamps = await Bootcamp.find();
+  let query;
+
+  // Copy req.query
+  const reqQuery = { ...req.query };
+  console.log(req.query)
+
+  // Fields to exclude
+  const removeFields = ['select'];
+
+  // // Loop over removeFields
+  removeFields.forEach(param => delete reqQuery[param])
+
+  // Create query string
+  let queryStr = JSON.stringify(reqQuery);
+
+  // Create operators ($gt, $gte, etc)
+  queryStr = queryStr.replace(/\b(gt|gte|lt|lte|in)\b/g, match => `$${match}`);
+
+  // Finding resource
+  query = Bootcamp.find(JSON.parse(queryStr));
+
+  if(req.query.select){
+    const fields = req.query.select.split(',').join(' ')
+    query.select(fields)
+  }
+
+
+ 
+  const bootcamps = await query;
+  // // Select Fields
+  // if(req.query.select){
+  //   return bootcamps
+  // }
+  
+  // Exectuing query
+  // const bootcamps = await query.select();
 
   res
     .status(200)
@@ -83,11 +118,12 @@ exports.getBootcampsInRadius = asyncHandler(async (req, res, next) => {
   // Get lat/lng from geocoder
   const loc = await geocoder.geocode(zipcode);
   const { latitude, longitude } = loc[0];
+  const radius = distance / 6378;
 
   // Get bootcamps by radius
   const bootcamps = await Bootcamp.find({
     location: {
-      $geoWithin: { $centerSphere: [[longitude, latitude], distance / 3963] }
+      $geoWithin: { $centerSphere: [[longitude, latitude], radius] }
     }
   });
 
